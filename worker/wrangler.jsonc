@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "email-tracker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "email-tracker",
+      // Replace with the id printed by `npx wrangler d1 create email-tracker`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+  // API_TOKEN is a secret: `npx wrangler secret put API_TOKEN` (locally: .dev.vars)
+}

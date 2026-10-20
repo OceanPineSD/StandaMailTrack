@@ -1,0 +1,10 @@
+{
+  "name": "email-tracker",
+  "private": true,
+  "description": "Personal Streak-style Gmail open & click tracker",
+  "workspaces": ["worker", "extension"],
+  "scripts": {
+    "test": "npm test --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  }
+}
