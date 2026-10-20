@@ -1,33 +1,62 @@
-# email-tracker
+<div align="center">
 
-A free, self-hosted, Streak-style open and click tracker for emails you send from Gmail in desktop Chrome.
+# 👁️ email-tracker
 
-You run your own copy: a tiny Cloudflare Worker stores the data, and a Chrome extension you load yourself adds the tracking.
-There are no third-party servers, no accounts with us, and no subscription. It all fits in free tiers.
+**A free, self-hosted, Streak-style open & click tracker for Gmail.**
 
-```
- Gmail (your Chrome)                     Cloudflare (your account, free)
- ┌──────────────────────────┐            ┌────────────────────────────────┐
- │ extension                │  register  │ Worker  ── D1 (SQLite)         │
- │  • adds pixel + links    │ ─────────▶ │  /p/<id>.gif   pixel           │
- │  • Sent badges, sidebar  │  stats     │  /c/<id>/<n>   link redirect   │
- │  • notifications         │ ◀───────── │  /api/*        token-protected │
- └──────────────────────────┘            └────────────────────────────────┘
-                                             ▲ recipient opens / clicks
-```
+See who opened your email, when, how often, and which links they clicked.
+Your data lives in your own Cloudflare account. No subscription, no third-party servers.
 
-## Features
+[![CI](https://github.com/sagarrajak245/email-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/sagarrajak245/email-tracker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-F38020?logo=cloudflare&logoColor=white)
+![Chrome MV3](https://img.shields.io/badge/Chrome-MV3%20extension-4285F4?logo=googlechrome&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Cost](https://img.shields.io/badge/cost-%240%2Fmonth-brightgreen)
 
-- **Sent-list badges.** Tracked threads show `✓` (sent, not opened) or `✓✓ N` (opened N times).
-- **Thread sidebar.** Open a tracked thread and click the eye icon on the right. You'll see every open and click, with
-  time, rough place (the city, or "via Gmail") and device.
-- **Desktop notifications.** "bob@x.com opened your email" or "Someone clicked a link" arrive about 1–2 minutes after
-  it happens.
-- **A Track toggle in compose.** Turn tracking off for a single email, and set the default in the options.
-- **Your own views are ignored.** Opens right after sending, your own reading in Gmail, and replies that quote
-  your email are not counted.
+[**Set it up in 15 minutes →**](#setup) · [How it works](#how-it-works) · [Limitations](#limitations) · [Privacy](#privacy-and-responsible-use)
 
-## Before you start
+<br>
+
+<img src="docs/how-it-works.gif" alt="Animation: you send an email, the recipient opens it, the pixel hits your Cloudflare Worker, and your Gmail Sent badge turns green with a notification" width="820">
+
+</div>
+
+## ✨ What you get
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Sent-list badges**
+
+Tracked threads show `✓` (sent, not opened) or a green `✓✓ N` (opened N times), right in Gmail.
+
+<img src="docs/sent-badges.png" alt="Gmail Sent list with green ✓✓ 1 badges next to tracked emails">
+
+</td>
+<td width="50%" valign="top">
+
+**Thread sidebar**
+
+Open a tracked thread and click the 👁️ icon on the right: every open and click, with time, rough place and device.
+
+<img src="docs/sidebar.png" alt="Gmail thread with the Email Tracker sidebar listing an open via Gmail and a link click from Pune on Windows">
+
+</td>
+</tr>
+</table>
+
+| | |
+|---|---|
+| 🔔 **Desktop notifications** | "bob@x.com opened your email" or "Someone clicked a link", about 1–2 minutes after it happens. |
+| 🎚️ **Track toggle in compose** | Turn tracking off for a single email, and set the default in the options. |
+| 🙈 **Your own views are ignored** | Opens right after sending, your own reading in Gmail, and replies that quote your email aren't counted. |
+| 🔗 **Link-click tracking** | Links are wrapped through your Worker, which logs the click and redirects instantly. |
+| 💸 **Free forever** | Fits in the Cloudflare and InboxSDK free tiers. No credit card. |
+| 🔐 **You own the data** | One Worker, one database, one token, all in your account. |
+
+## 🧰 Before you start
 
 You need:
 
@@ -41,7 +70,9 @@ You need:
 
 Setup takes about 15 minutes. You don't need a credit card.
 
-## Setup
+<a id="setup"></a>
+
+## 🚀 Setup
 
 ### 1. Get the code
 
@@ -134,7 +165,7 @@ Open the email there and click a link in it. Within about 2 minutes:
 - the thread's sidebar lists the open and the click;
 - a desktop notification pops up.
 
-## Updating
+## 🔄 Updating
 
 ```bash
 git pull
@@ -145,12 +176,17 @@ npm run build -w extension
 Then click the ⟳ reload icon on the extension's card in `chrome://extensions`. If `worker/` changed, also run
 `npm run deploy` from `worker/`. It applies any new migrations and redeploys.
 
-## Rotating the token
+## 🔑 Rotating the token
 
 From `worker/`, run `npm run secret` with a new random value. Then paste the new value into the extension's
 options and save.
 
-## Troubleshooting
+<a id="troubleshooting"></a>
+
+## 🩺 Troubleshooting
+
+<details>
+<summary>Something not working? Click for common fixes.</summary>
 
 | Symptom | Fix |
 |---|---|
@@ -166,7 +202,11 @@ options and save.
 | No notifications | Allow notifications for Chrome in your OS settings (Windows: Settings → System → Notifications; macOS: System Settings → Notifications). |
 | Badges/sidebar stopped working after a Gmail update | InboxSDK may need a newer version: bump `@inboxsdk/core` in `extension/package.json`, then rebuild. |
 
-## Limitations
+</details>
+
+<a id="limitations"></a>
+
+## ⚠️ Limitations
 
 Open tracking means "probably opened", not "definitely read". Streak and similar tools work the same way.
 
@@ -183,7 +223,9 @@ Open tracking means "probably opened", not "definitely read". Streak and similar
 - **Deliverability.** A `*.workers.dev` link domain can look spammy to some filters. Adding a
   [custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to the Worker helps.
 
-## Privacy and responsible use
+<a id="privacy-and-responsible-use"></a>
+
+## 🛡️ Privacy and responsible use
 
 All data lives in **your** Cloudflare account: the email subject, recipient addresses, open and click times, rough city,
 and user agent. Nobody else, including the author, can see it. Anyone with your API token can read it, so keep
@@ -193,7 +235,23 @@ Tracking pixels are common in marketing email, but people may not expect them in
 GDPR or ePrivacy) may require consent depending on where you and your recipients are. Use it responsibly. You can turn tracking off
 for any single email.
 
-## How it works
+<a id="how-it-works"></a>
+
+## ⚙️ How it works
+
+<details>
+<summary>Under the hood: pixel, links, self-view filtering and polling.</summary>
+
+```
+ Gmail (your Chrome)                     Cloudflare (your account, free)
+ ┌──────────────────────────┐            ┌────────────────────────────────┐
+ │ extension                │  register  │ Worker  ── D1 (SQLite)         │
+ │  • adds pixel + links    │ ─────────▶ │  /p/<id>.gif   pixel           │
+ │  • Sent badges, sidebar  │  stats     │  /c/<id>/<n>   link redirect   │
+ │  • notifications         │ ◀───────── │  /api/*        token-protected │
+ └──────────────────────────┘            └────────────────────────────────┘
+                                             ▲ recipient opens / clicks
+```
 
 1. When you click Send, the extension cancels the send. It gives the email a random 22-character id, adds a
    1×1 pixel (`/p/<id>.gif`), rewrites links to `/c/<id>/<n>` and registers the email with the Worker.
@@ -211,12 +269,15 @@ for any single email.
 worker/      Cloudflare Worker (TypeScript) + D1 migrations
   src/       index.ts (routes) · track.ts (pixel/click) · api.ts (stats API) · auth.ts · validate.ts
   scripts/   deploy.mjs (find/create D1, generate wrangler.local.jsonc, migrate, deploy)
+docs/        README images and make-demo.py (renders how-it-works.gif)
 extension/   Chrome MV3 extension (TypeScript, InboxSDK, esbuild)
   src/       content.ts (Gmail UI) · background.ts (API, alarms, notifications) · options.ts
   static/    manifest.json, options.html, icons
 ```
 
-## Development
+</details>
+
+## 🛠️ Development
 
 ```bash
 npm install
@@ -226,9 +287,11 @@ npm run build -w extension  # outputs extension/dist
 cd worker && npx wrangler dev   # local Worker; put API_TOKEN=... in worker/.dev.vars
 ```
 
+The README animation is generated by `python docs/make-demo.py` (needs Pillow and ffmpeg).
+
 Contributions are welcome. Open an issue or a PR. Please keep logic in small, tested modules (see
 `extension/src/*.ts` and `extension/test/`) and run `npm test` and `npm run typecheck` before opening a PR.
 
-## License
+## 📄 License
 
 [MIT](LICENSE)
