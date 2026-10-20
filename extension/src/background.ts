@@ -1,6 +1,7 @@
 // Lets InboxSDK inject its page-world script (MV3).
 import "@inboxsdk/core/background.js";
 import { createApi } from "./api";
+import { PIXEL_BLOCK_RULE_ID, pixelBlockRule } from "./dnr";
 import type { Reply, Request } from "./messages";
 import { createPatchStore, type PendingPatch } from "./patchQueue";
 import { loadSettings } from "./settings";
@@ -43,6 +44,13 @@ async function handle(msg: Request): Promise<Reply> {
     }
     case "checkConnection":
       return { ok: true, state: await (await api()).checkConnection() };
+    case "threads":
+      return { ok: true, data: await (await api()).threads(msg.ids) };
+    case "email":
+      return { ok: true, data: await (await api()).email(msg.id) };
+    case "selfViews":
+      await (await api()).selfViews(msg.ids);
+      return { ok: true };
   }
 }
 
@@ -61,4 +69,17 @@ chrome.alarms.get(FLUSH_ALARM).then((a) => {
 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === FLUSH_ALARM) flushQueue().catch((e) => console.warn("patch retry failed", e));
+});
+
+/** Keeps the rule that stops your own Gmail tab from loading your pixels in step with the Worker URL. */
+async function syncPixelRule() {
+  const { origin } = await loadSettings();
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [PIXEL_BLOCK_RULE_ID],
+    addRules: origin ? [pixelBlockRule(origin)] : [],
+  });
+}
+syncPixelRule().catch((e) => console.warn("pixel rule failed", e));
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && "origin" in changes) syncPixelRule().catch((e) => console.warn("pixel rule failed", e));
 });
