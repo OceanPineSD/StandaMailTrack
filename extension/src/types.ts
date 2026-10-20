@@ -49,3 +49,23 @@ export interface EmailDetail {
   opens: OpenEvent[];
   clicks: ClickEvent[];
 }
+
+/** One settled open or click from /api/events, with its email's subject and recipients. */
+export interface TrackEvent {
+  type: "open" | "click";
+  id: number;
+  email_id: string;
+  at: number;
+  via_proxy: boolean;
+  city: string | null;
+  country: string | null;
+  url: string | null;
+  subject: string;
+  recipients: string[];
+  recipient_count: number;
+}
+
+export interface EventsPage {
+  events: TrackEvent[];
+  cursor: string;
+}

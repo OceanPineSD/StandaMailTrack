@@ -63,4 +63,12 @@ describe("api client: read routes", () => {
     expect(fetch.mock.calls[1][0]).toBe(`${ORIGIN}/api/self-views`);
     expect(JSON.parse(fetch.mock.calls[1][1]!.body as string)).toEqual({ ids: ["x", "y"] });
   });
+  it("polls events with the cursor url-encoded, or none on the first poll", async () => {
+    const fetch = fakeFetch(200, { events: [], cursor: "1-1" });
+    const api = createApi({ origin: ORIGIN, token: "tok", fetch });
+    await api.events(null);
+    await api.events("3-1");
+    expect(fetch.mock.calls[0][0]).toBe(`${ORIGIN}/api/events`);
+    expect(fetch.mock.calls[1][0]).toBe(`${ORIGIN}/api/events?after=3-1`);
+  });
 });

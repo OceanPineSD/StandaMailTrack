@@ -11,5 +11,6 @@
     { "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_end" }
   ],
   "options_page": "options.html",
+  "icons": { "128": "icon-128.png" },
   "web_accessible_resources": [{ "resources": ["icon.svg"], "matches": ["https://mail.google.com/*"] }]
 }
