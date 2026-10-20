@@ -13,6 +13,7 @@ export default defineConfig(async () => {
         },
       }),
     ],
-    test: { setupFiles: ["./test/apply-migrations.ts"] },
+    // scripts/*.test.mjs are Node tests (node --test), not Worker tests.
+    test: { include: ["test/**/*.test.ts"], setupFiles: ["./test/apply-migrations.ts"] },
   };
 });

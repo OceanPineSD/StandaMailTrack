@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "test": "vitest run",
+    "deploy": "node scripts/deploy.mjs",
+    "secret": "node scripts/deploy.mjs --secret",
+    "test": "vitest run && node --test scripts/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
