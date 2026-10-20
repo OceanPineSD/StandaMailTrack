@@ -4,3 +4,7 @@ dist/
 .dev.vars
 *.log
 .DS_Store
+
+# per-person deploy config (worker/scripts/deploy.mjs)
+.env
+wrangler.local.jsonc
