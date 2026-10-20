@@ -1,0 +1,20 @@
+{
+  "name": "email-tracker-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inboxsdk/core": "2.2.31"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.5",
+    "esbuild": "0.28.2",
+    "jsdom": "30.1.3",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
