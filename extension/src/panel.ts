@@ -42,7 +42,7 @@ export function renderPanel(details: EmailDetail[], now: number, doc: Document):
     } else {
       const list = el("ul", undefined, "margin:0;padding-left:16px");
       for (const r of rows) {
-        const li = el("li", undefined, "margin:2px 0;word-break:break-all");
+        const li = el("li", undefined, "margin:2px 0;overflow-wrap:anywhere");
         li.title = new Date(r.at).toLocaleString();
         li.append(el("span", r.text), el("span", ` · ${timeAgo(r.at, now)}`, "color:#5f6368"));
         list.append(li);
