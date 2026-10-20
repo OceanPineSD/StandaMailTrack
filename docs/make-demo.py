@@ -260,8 +260,8 @@ def caption(c, t):
 
 def render(t):
     c = Canvas()
-    c.text(24, 24, "email-tracker", 18, TEXT, True)
-    c.text(160, 27, "how a tracked email works", 13, MUTED)
+    c.text(24, 24, "argus", 18, TEXT, True)
+    c.text(90, 27, "how a tracked email works", 13, MUTED)
     gmail_active = 1.0 if t < 2.6 or t > 8.0 else 0.0
     panel(c, LEFT, "YOUR GMAIL  ·  extension", gmail_active)
     panel(c, MID, "YOUR CLOUDFLARE", 1.0 if 5.6 < t < 8.4 else 0.0)

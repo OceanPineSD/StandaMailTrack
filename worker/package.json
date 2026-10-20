@@ -1,5 +1,5 @@
 {
-  "name": "email-tracker-worker",
+  "name": "argus-worker",
   "private": true,
   "type": "module",
   "scripts": {
