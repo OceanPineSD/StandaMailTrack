@@ -45,3 +45,22 @@ describe("api client", () => {
     expect(await createApi({ origin: ORIGIN, token: "tok", fetch: down }).checkConnection()).toBe("unreachable");
   });
 });
+
+describe("api client: read routes", () => {
+  it("looks up threads with the ids url-encoded in one query", async () => {
+    const fetch = fakeFetch(200, { threads: {} });
+    await createApi({ origin: ORIGIN, token: "tok", fetch }).threads(["a b", "c"]);
+    expect(fetch.mock.calls[0][0]).toBe(`${ORIGIN}/api/threads?ids=a%20b%2Cc`);
+    expect(fetch.mock.calls[0][1]!.method).toBe("GET");
+  });
+
+  it("fetches one email's detail and posts self views", async () => {
+    const fetch = fakeFetch(200, {});
+    const api = createApi({ origin: ORIGIN, token: "tok", fetch });
+    await api.email("x");
+    await api.selfViews(["x", "y"]);
+    expect(fetch.mock.calls[0][0]).toBe(`${ORIGIN}/api/emails/x`);
+    expect(fetch.mock.calls[1][0]).toBe(`${ORIGIN}/api/self-views`);
+    expect(JSON.parse(fetch.mock.calls[1][1]!.body as string)).toEqual({ ids: ["x", "y"] });
+  });
+});

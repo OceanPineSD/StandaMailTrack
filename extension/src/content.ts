@@ -1,10 +1,22 @@
 import * as InboxSDK from "@inboxsdk/core";
 import type { ComposeView } from "@inboxsdk/core";
+import { createBatcher } from "./batcher";
+import { badgeLabel } from "./format";
 import { newId } from "./ids";
 import { inject, stripPixels, untrack } from "./inject";
 import { LIMITS } from "./limits";
 import { send } from "./messages";
+import { renderPanel } from "./panel";
+import { trackedIds } from "./proxyIds";
 import { DEFAULTS, type Settings } from "./settings";
+import type { EmailDetail, EmailSummary } from "./types";
+
+/** Self views of the same email closer than this are one view (Gmail re-renders messages). */
+const SELF_VIEW_GAP_MS = 30_000;
+/** Detail lookups per opened thread. */
+const PANEL_EMAILS = 10;
+
+type Sdk = Awaited<ReturnType<typeof InboxSDK.load>>;
 
 /** Covers the background's own 3s register timeout plus messaging overhead. */
 const REGISTER_DEADLINE_MS = 3_500;
@@ -32,7 +44,7 @@ function recipientsOf(cv: ComposeView): string[] {
   );
 }
 
-function setupCompose(sdk: Awaited<ReturnType<typeof InboxSDK.load>>, cv: ComposeView, origin: string, trackByDefault: boolean) {
+function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault: boolean) {
   let enabled = trackByDefault;
   // Fresh per attempt: links are stored by position, so an edit after a blocked send must not reuse an id.
   let emailId: string | null = null;
@@ -122,6 +134,69 @@ function setupCompose(sdk: Awaited<ReturnType<typeof InboxSDK.load>>, cv: Compos
   });
 }
 
+async function ask<T>(msg: Parameters<typeof send>[0]): Promise<T> {
+  const reply = await send(msg);
+  if (!reply?.ok) throw new Error(reply?.error ?? "no reply");
+  return reply.data as T;
+}
+
+/** Thread id -> its tracked emails, one batched /api/threads call per burst of rendered rows. */
+const threads = createBatcher<EmailSummary[]>(
+  async (ids) => (await ask<{ threads: Record<string, EmailSummary[]> }>({ type: "threads", ids })).threads,
+  { max: 100 },
+);
+
+function setupThreadRow(row: InboxSDK.ThreadRowView) {
+  row
+    .getThreadIDIfStableAsync()
+    .then(async (tid) => {
+      if (!tid) return;
+      const badge = badgeLabel((await threads.get(tid)) ?? []);
+      if (badge && !row.destroyed) row.addLabel(badge);
+    })
+    .catch((e) => console.warn("[email-tracker] badge failed:", e));
+}
+
+const lastSelfView = new Map<string, number>();
+
+/** You reading your own tracked email (or a reply quoting it) loads its pixel too; tell the Worker it was you. */
+async function reportSelfView(mv: InboxSDK.MessageView, origin: string) {
+  let ids: string[] = [];
+  try {
+    const srcs = [...mv.getBodyElement().querySelectorAll("img")].map((img) => img.getAttribute("src") ?? "");
+    const now = Date.now();
+    ids = trackedIds(srcs, origin)
+      .filter((id) => now - (lastSelfView.get(id) ?? 0) > SELF_VIEW_GAP_MS)
+      .slice(0, 100);
+    if (!ids.length) return;
+    for (const id of ids) lastSelfView.set(id, now);
+    await ask({ type: "selfViews", ids });
+  } catch (e) {
+    for (const id of ids) lastSelfView.delete(id); // let the next view retry
+    console.warn("[email-tracker] self view failed:", e);
+  }
+}
+
+async function setupThreadView(tv: InboxSDK.ThreadView) {
+  const tid = await tv.getThreadIDAsync();
+  threads.forget(tid); // the panel should show the latest counts
+  const emails = ((await threads.get(tid)) ?? []).slice(-PANEL_EMAILS);
+  if (!emails.length || tv.destroyed) return;
+
+  const el = document.createElement("div");
+  const load = async () => {
+    const details = await Promise.all(emails.map((e) => ask<EmailDetail>({ type: "email", id: e.id }).catch(() => null)));
+    const ok = details.filter((d): d is EmailDetail => d !== null);
+    const refresh = document.createElement("button");
+    refresh.textContent = "Refresh";
+    refresh.setAttribute("style", "margin:8px 12px 0;font:12px sans-serif");
+    refresh.onclick = () => void load();
+    el.replaceChildren(refresh, ok.length ? renderPanel(ok, Date.now(), document) : document.createTextNode("Couldn't load tracking."));
+  };
+  await load();
+  if (!tv.destroyed) tv.addSidebarContentPanel({ el, title: "Email Tracker", iconUrl: chrome.runtime.getURL("icon.svg") });
+}
+
 async function main() {
   const { origin, appId, trackByDefault } = await loadPublicSettings();
   if (!origin || !appId) {
@@ -130,6 +205,11 @@ async function main() {
   }
   const sdk = await InboxSDK.load(2, appId);
   sdk.Compose.registerComposeViewHandler((cv) => setupCompose(sdk, cv, origin, trackByDefault));
+  sdk.Lists.registerThreadRowViewHandler(setupThreadRow);
+  sdk.Conversations.registerMessageViewHandler((mv) => void reportSelfView(mv, origin));
+  sdk.Conversations.registerThreadViewHandler((tv) => {
+    setupThreadView(tv).catch((e) => console.warn("[email-tracker] panel failed:", e));
+  });
 }
 
 main().catch((e) => console.error("[email-tracker] failed to start", e));

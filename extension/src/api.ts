@@ -1,3 +1,5 @@
+import type { EmailDetail, EmailSummary } from "./types";
+
 export interface NewEmail {
   id: string;
   subject: string;
@@ -34,7 +36,11 @@ export function createApi({ origin, token, fetch = globalThis.fetch.bind(globalT
 
   return {
     register: (email: NewEmail, timeoutMs?: number) => call("/api/emails", "POST", email, timeoutMs),
-    patch: (id: string, ids: { thread_id?: string; message_id?: string }) => call(`/api/emails/${id}`, "PATCH", ids),
+    patch: (id: string, ids: { thread_id?: string; message_id?: string }) => call(`/api/emails/${encodeURIComponent(id)}`, "PATCH", ids),
+    threads: (ids: string[]) =>
+      call(`/api/threads?ids=${encodeURIComponent(ids.join(","))}`, "GET") as Promise<{ threads: Record<string, EmailSummary[]> }>,
+    email: (id: string) => call(`/api/emails/${encodeURIComponent(id)}`, "GET") as Promise<EmailDetail>,
+    selfViews: (ids: string[]) => call("/api/self-views", "POST", { ids }),
     /** An authorized lookup of an id that can't exist answers 404; a bad token answers 401. */
     async checkConnection(): Promise<ConnectionState> {
       try {
