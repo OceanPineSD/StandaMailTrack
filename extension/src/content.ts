@@ -98,13 +98,13 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
         pending = { id, links };
       })
       .catch((e: unknown) => {
-        console.warn("[email-tracker] register failed, sending untracked:", e);
+        console.warn("[argus] register failed, sending untracked:", e);
         try {
           cv.setBodyHTML(stripPixels(current, origin));
         } catch {
           return; // the compose is gone; nothing to send
         }
-        sdk.ButterBar.showMessage({ text: "Email Tracker: couldn't reach your Worker, sent without tracking.", time: 6000 });
+        sdk.ButterBar.showMessage({ text: "Argus: couldn't reach your Worker, sent without tracking.", time: 6000 });
       })
       .finally(() => {
         resending = true;
@@ -112,7 +112,7 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
           cv.send();
         } catch (e) {
           // The compose was closed while we waited on the Worker; the draft keeps the body.
-          console.warn("[email-tracker] couldn't resend:", e);
+          console.warn("[argus] couldn't resend:", e);
         }
         // If Gmail blocks the send (e.g. no recipients), the next click must go through presending again.
         setTimeout(() => (resending = false), 2_000);
@@ -129,7 +129,7 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
       const [thread_id, message_id] = await Promise.all([event.getThreadID(), event.getMessageID()]);
       await send({ type: "patch", id: emailId, thread_id, message_id });
     } catch (e) {
-      console.warn("[email-tracker] couldn't record thread id:", e);
+      console.warn("[argus] couldn't record thread id:", e);
     }
   });
 }
@@ -154,7 +154,7 @@ function setupThreadRow(row: InboxSDK.ThreadRowView) {
       const badge = badgeLabel((await threads.get(tid)) ?? []);
       if (badge && !row.destroyed) row.addLabel(badge);
     })
-    .catch((e) => console.warn("[email-tracker] badge failed:", e));
+    .catch((e) => console.warn("[argus] badge failed:", e));
 }
 
 const lastSelfView = new Map<string, number>();
@@ -173,7 +173,7 @@ async function reportSelfView(mv: InboxSDK.MessageView, origin: string) {
     await ask({ type: "selfViews", ids });
   } catch (e) {
     for (const id of ids) lastSelfView.delete(id); // let the next view retry
-    console.warn("[email-tracker] self view failed:", e);
+    console.warn("[argus] self view failed:", e);
   }
 }
 
@@ -194,13 +194,13 @@ async function setupThreadView(tv: InboxSDK.ThreadView) {
     el.replaceChildren(refresh, ok.length ? renderPanel(ok, Date.now(), document) : document.createTextNode("Couldn't load tracking."));
   };
   await load();
-  if (!tv.destroyed) tv.addSidebarContentPanel({ el, title: "Email Tracker", iconUrl: chrome.runtime.getURL("icon.svg") });
+  if (!tv.destroyed) tv.addSidebarContentPanel({ el, title: "Argus", iconUrl: chrome.runtime.getURL("icon.svg") });
 }
 
 async function main() {
   const { origin, appId, trackByDefault } = await loadPublicSettings();
   if (!origin || !appId) {
-    console.info("[email-tracker] not set up; open the extension's options page.");
+    console.info("[argus] not set up; open the extension's options page.");
     return;
   }
   const sdk = await InboxSDK.load(2, appId);
@@ -208,8 +208,8 @@ async function main() {
   sdk.Lists.registerThreadRowViewHandler(setupThreadRow);
   sdk.Conversations.registerMessageViewHandler((mv) => void reportSelfView(mv, origin));
   sdk.Conversations.registerThreadViewHandler((tv) => {
-    setupThreadView(tv).catch((e) => console.warn("[email-tracker] panel failed:", e));
+    setupThreadView(tv).catch((e) => console.warn("[argus] panel failed:", e));
   });
 }
 
-main().catch((e) => console.error("[email-tracker] failed to start", e));
+main().catch((e) => console.error("[argus] failed to start", e));

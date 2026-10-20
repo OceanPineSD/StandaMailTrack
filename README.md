@@ -1,6 +1,8 @@
 <div align="center">
 
-# 👁️ email-tracker
+# 👁️ Argus
+
+*The hundred-eyed watchman for your Gmail.*
 
 **A free, self-hosted, Streak-style open & click tracker for Gmail.**
 
@@ -41,7 +43,7 @@ Tracked threads show `✓` (sent, not opened) or a green `✓✓ N` (opened N ti
 
 Open a tracked thread and click the 👁️ icon on the right: every open and click, with time, rough place and device.
 
-<img src="docs/sidebar.png" alt="Gmail thread with the Email Tracker sidebar listing an open via Gmail and a link click from Pune on Windows">
+<img src="docs/sidebar.png" alt="Gmail thread with the Argus sidebar listing an open via Gmail and a link click from Pune on Windows">
 
 </td>
 </tr>
@@ -55,6 +57,9 @@ Open a tracked thread and click the 👁️ icon on the right: every open and cl
 | 🔗 **Link-click tracking** | Links are wrapped through your Worker, which logs the click and redirects instantly. |
 | 💸 **Free forever** | Fits in the Cloudflare and InboxSDK free tiers. No credit card. |
 | 🔐 **You own the data** | One Worker, one database, one token, all in your account. |
+
+> **Why "Argus"?** In Greek myth, Argus Panoptes was a giant with a hundred eyes who never slept: the perfect watchman.
+> This Argus keeps an eye on every email you send and tells you the moment someone opens it.
 
 ## 🧰 Before you start
 
@@ -197,7 +202,7 @@ options and save.
 | You ran plain `npx wrangler deploy` and it failed on the database | Plain wrangler uses the author's id from `wrangler.jsonc`. Use `npm run deploy`, or `npx wrangler … -c wrangler.local.jsonc`. |
 | Options page says **unauthorized** | The token in the options doesn't match the `API_TOKEN` secret. Set it again (step 3). |
 | Options page says **unreachable** | Check the Worker URL is `https://…workers.dev` with no path, and that you allowed the permission prompt. |
-| No Track toggle in Gmail | Reload the Gmail tab. Check the app id is set. In Gmail press F12 and look for `[email-tracker]` messages in the Console. |
+| No Track toggle in Gmail | Reload the Gmail tab. Check the app id is set. In Gmail press F12 and look for `[argus]` messages in the Console. |
 | Opens never show up | Did the recipient's mail app load images? Many block them until "Show images". Opens in this Chrome profile are ignored on purpose (step 6). |
 | No notifications | Allow notifications for Chrome in your OS settings (Windows: Settings → System → Notifications; macOS: System Settings → Notifications). |
 | Badges/sidebar stopped working after a Gmail update | InboxSDK may need a newer version: bump `@inboxsdk/core` in `extension/package.json`, then rebuild. |

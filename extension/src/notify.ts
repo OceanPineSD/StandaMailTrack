@@ -28,7 +28,7 @@ export function notificationsFor(events: TrackEvent[], max = 5): Note[] {
       : { title: `${who} clicked a link`, message: [subject, host(e.url), where].filter(Boolean).join(" · ") };
   });
   const rest = events.length - max;
-  if (rest > 0) notes.push({ title: "Email Tracker", message: `+${rest} more opens and clicks` });
+  if (rest > 0) notes.push({ title: "Argus", message: `+${rest} more opens and clicks` });
   return notes;
 }
 
