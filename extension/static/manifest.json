@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Email Tracker (personal)",
+  "version": "0.1.0",
+  "description": "Track opens and link clicks of emails you send from Gmail.",
+  "permissions": ["storage", "scripting", "alarms", "notifications"],
+  "host_permissions": ["https://mail.google.com/"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    { "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_end" }
+  ],
+  "options_page": "options.html"
+}
