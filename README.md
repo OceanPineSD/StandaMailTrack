@@ -53,52 +53,35 @@ npm install
 
 (Or fork it first and clone your fork if you want to make changes.)
 
-### 2. Create your database
+### 2. Deploy the Worker
 
-Every command in steps 2–4 runs **inside `worker/`**, because wrangler reads `worker/wrangler.jsonc` from there.
+Every command in steps 2–3 runs **inside `worker/`**.
 
 ```bash
 cd worker
 npx wrangler login
-npx wrangler d1 create email-tracker
+npm run deploy
 ```
 
-`wrangler login` opens your browser so you can sign in to Cloudflare. `d1 create` prints a block containing a
-`database_id`.
+`wrangler login` opens your browser so you can sign in to Cloudflare. Then `npm run deploy` does everything else:
 
-Open `worker/wrangler.jsonc` and **replace the `database_id` value with yours**. The one in the repo belongs to the
-author's account and won't work for you:
+1. finds your D1 database called `email-tracker`, or creates it on the first run;
+2. saves its id to `worker/.env`;
+3. writes `worker/wrangler.local.jsonc`, a copy of `wrangler.jsonc` with your database id;
+4. creates the tables and deploys the Worker.
 
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "email-tracker",
-    "database_id": "<paste yours here>",
-    "migrations_dir": "migrations"
-  }
-]
-```
+Both generated files are gitignored, so you never edit `wrangler.jsonc` (the `database_id` committed there is the
+author's) and never commit your own. Run `npm run deploy` again anytime to redeploy. It's safe to repeat.
 
-Create the tables:
-
-```bash
-npx wrangler d1 migrations apply email-tracker --remote
-```
-
-### 3. Deploy the Worker
-
-```bash
-npx wrangler deploy
-```
-
-On your first deploy, Cloudflare may ask you to pick a `workers.dev` subdomain. Then it prints your Worker's URL, for
-example `https://email-tracker.<your-subdomain>.workers.dev`. **Save this URL.**
+On your first deploy, Cloudflare may ask you to pick a `workers.dev` subdomain. The deploy prints your Worker's URL,
+for example `https://email-tracker.<your-subdomain>.workers.dev`. **Save this URL.**
 
 Check it works: open `https://email-tracker.<your-subdomain>.workers.dev/p/x.gif` in a browser. You should see a
 blank page, which is the invisible 1×1 image.
 
-### 4. Set your API token
+> Prefer to pick the database yourself? Put `D1_DATABASE_ID=<id>` in `worker/.env` and the script uses that instead.
+
+### 3. Set your API token
 
 The token is the password between the extension and your Worker. Generate a long random one:
 
@@ -109,17 +92,17 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Copy what it prints, then store it in the Worker. Wrangler asks you to paste the value:
 
 ```bash
-npx wrangler secret put API_TOKEN
+npm run secret
 ```
 
-Keep the token somewhere safe, like a password manager. You'll paste it into the extension in step 6. Never commit it.
+Keep the token somewhere safe, like a password manager. You'll paste it into the extension in step 5. Never commit it.
 
-### 5. Get an InboxSDK app id
+### 4. Get an InboxSDK app id
 
 Go to [inboxsdk.com](https://www.inboxsdk.com/) and register a free app (look for "Get App ID" or
 "Register"). You'll get an id that starts with `sdk_`.
 
-### 6. Build and load the extension
+### 5. Build and load the extension
 
 Go back to the repo root:
 
@@ -132,15 +115,15 @@ npm run build -w extension
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select the **`extension/dist`** folder.
 4. On the extension's card, click **Details → Extension options**. Fill in:
-   - **Worker URL**: the URL from step 3;
-   - **API token**: the token from step 4;
-   - **InboxSDK app ID**: the `sdk_…` id from step 5.
+   - **Worker URL**: the URL from step 2;
+   - **API token**: the token from step 3;
+   - **InboxSDK app ID**: the `sdk_…` id from step 4.
 5. Click **Save**. Chrome asks to allow access to your Worker; allow it. The page should say **"Saved and connected"**.
 6. Reload any open Gmail tabs.
 
 Done. Compose an email in Gmail and you'll see the **Track** toggle.
 
-### 7. Try it
+### 6. Try it
 
 Send a tracked email to an address you read **on another device or in another browser**, such as your phone. Don't use a
 second Gmail account in this same Chrome profile: the extension blocks every Gmail tab in this profile from loading
@@ -160,28 +143,26 @@ npm run build -w extension
 ```
 
 Then click the ⟳ reload icon on the extension's card in `chrome://extensions`. If `worker/` changed, also run
-the following from `worker/`:
-
-```bash
-npx wrangler d1 migrations apply email-tracker --remote
-npx wrangler deploy
-```
+`npm run deploy` from `worker/`. It applies any new migrations and redeploys.
 
 ## Rotating the token
 
-From `worker/`, run `npx wrangler secret put API_TOKEN` with a new random value. Then paste the new value into the extension's
+From `worker/`, run `npm run secret` with a new random value. Then paste the new value into the extension's
 options and save.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `wrangler` says "Missing entry-point" or "Worker name missing" | You ran it from the repo root. `cd worker` first. |
-| `d1 migrations apply` fails with "database not found" | `database_id` in `worker/wrangler.jsonc` isn't yours (step 2). |
-| Options page says **unauthorized** | The token in the options doesn't match the `API_TOKEN` secret. Set it again (step 4). |
+| `npm run deploy` says "Missing script" or wrangler says "Worker name missing" | You ran it from the repo root. `cd worker` first. |
+| Deploy fails with "not authenticated" | Run `npx wrangler login` (in `worker/`) and try again. |
+| Deploy fails with "database not found" | `worker/.env` points at a database you don't have. Delete the `D1_DATABASE_ID` line and rerun `npm run deploy`. |
+| Deploy asks which account to use, or fails with "more than one account" | Your login has several Cloudflare accounts. Add `CLOUDFLARE_ACCOUNT_ID=<id>` (from the dashboard sidebar) to `worker/.env` and rerun. |
+| You ran plain `npx wrangler deploy` and it failed on the database | Plain wrangler uses the author's id from `wrangler.jsonc`. Use `npm run deploy`, or `npx wrangler … -c wrangler.local.jsonc`. |
+| Options page says **unauthorized** | The token in the options doesn't match the `API_TOKEN` secret. Set it again (step 3). |
 | Options page says **unreachable** | Check the Worker URL is `https://…workers.dev` with no path, and that you allowed the permission prompt. |
 | No Track toggle in Gmail | Reload the Gmail tab. Check the app id is set. In Gmail press F12 and look for `[email-tracker]` messages in the Console. |
-| Opens never show up | Did the recipient's mail app load images? Many block them until "Show images". Opens in this Chrome profile are ignored on purpose (step 7). |
+| Opens never show up | Did the recipient's mail app load images? Many block them until "Show images". Opens in this Chrome profile are ignored on purpose (step 6). |
 | No notifications | Allow notifications for Chrome in your OS settings (Windows: Settings → System → Notifications; macOS: System Settings → Notifications). |
 | Badges/sidebar stopped working after a Gmail update | InboxSDK may need a newer version: bump `@inboxsdk/core` in `extension/package.json`, then rebuild. |
 
@@ -229,6 +210,7 @@ for any single email.
 ```
 worker/      Cloudflare Worker (TypeScript) + D1 migrations
   src/       index.ts (routes) · track.ts (pixel/click) · api.ts (stats API) · auth.ts · validate.ts
+  scripts/   deploy.mjs (find/create D1, generate wrangler.local.jsonc, migrate, deploy)
 extension/   Chrome MV3 extension (TypeScript, InboxSDK, esbuild)
   src/       content.ts (Gmail UI) · background.ts (API, alarms, notifications) · options.ts
   static/    manifest.json, options.html, icons
