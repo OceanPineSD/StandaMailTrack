@@ -9,7 +9,7 @@
 See who opened your email, when, how often, and which links they clicked.
 Your data lives in your own Cloudflare account. No subscription, no third-party servers.
 
-[![CI](https://github.com/sagarrajak245/email-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/sagarrajak245/email-tracker/actions/workflows/ci.yml)
+[![CI](https://github.com/sagarrajak245/Argus/actions/workflows/ci.yml/badge.svg)](https://github.com/sagarrajak245/Argus/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-F38020?logo=cloudflare&logoColor=white)
 ![Chrome MV3](https://img.shields.io/badge/Chrome-MV3%20extension-4285F4?logo=googlechrome&logoColor=white)
@@ -82,8 +82,8 @@ Setup takes about 15 minutes. You don't need a credit card.
 ### 1. Get the code
 
 ```bash
-git clone https://github.com/sagarrajak245/email-tracker.git
-cd email-tracker
+git clone https://github.com/sagarrajak245/Argus.git
+cd Argus
 npm install
 ```
 
