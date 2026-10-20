@@ -1,2 +1,135 @@
-// Gmail integration arrives in phase 2.
-export {};
+import * as InboxSDK from "@inboxsdk/core";
+import type { ComposeView } from "@inboxsdk/core";
+import { newId } from "./ids";
+import { inject, stripPixels, untrack } from "./inject";
+import { LIMITS } from "./limits";
+import { send } from "./messages";
+import { DEFAULTS, type Settings } from "./settings";
+
+/** Covers the background's own 3s register timeout plus messaging overhead. */
+const REGISTER_DEADLINE_MS = 3_500;
+
+// Eye icon for the compose toolbar button.
+const ICON = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+)}`;
+
+/** The content script never reads the API token; only the background does. */
+async function loadPublicSettings(): Promise<Pick<Settings, "origin" | "appId" | "trackByDefault">> {
+  const s = (await chrome.storage.local.get(["origin", "appId", "trackByDefault"])) as Partial<Settings>;
+  return { origin: s.origin ?? "", appId: s.appId ?? "", trackByDefault: s.trackByDefault ?? DEFAULTS.trackByDefault };
+}
+
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timed out")), ms))]);
+}
+
+function recipientsOf(cv: ComposeView): string[] {
+  const all = [...cv.getToRecipients(), ...cv.getCcRecipients(), ...cv.getBccRecipients()];
+  return [...new Set(all.map((c) => c.emailAddress.trim()).filter((e) => e && e.length <= LIMITS.recipientLength))].slice(
+    0,
+    LIMITS.recipients,
+  );
+}
+
+function setupCompose(sdk: Awaited<ReturnType<typeof InboxSDK.load>>, cv: ComposeView, origin: string, trackByDefault: boolean) {
+  let enabled = trackByDefault;
+  // Fresh per attempt: links are stored by position, so an edit after a blocked send must not reuse an id.
+  let emailId: string | null = null;
+  let tracked = false; // the body that went out carries our pixel
+  let resending = false; // our own cv.send() after the register round-trip
+  // The tracked body of an attempt that is in the compose but hasn't gone out (Gmail may still block it).
+  let pending: { id: string; links: string[] } | null = null;
+
+  const bar = cv.addStatusBar({ height: 22 });
+  const render = () => {
+    bar.el.textContent = enabled ? "👁 Tracking opens and clicks" : "Tracking off for this email";
+    bar.el.style.cssText = `font:12px/22px sans-serif;padding:0 12px;color:${enabled ? "#188038" : "#5f6368"}`;
+  };
+  render();
+  cv.addButton({
+    title: "Toggle email tracking",
+    iconUrl: ICON,
+    type: "MODIFIER",
+    onClick: () => {
+      enabled = !enabled;
+      render();
+    },
+  });
+
+  cv.on("presending", (event) => {
+    if (resending) return; // let our own send through
+    let current = cv.getHTMLContent();
+    if (pending) {
+      // Gmail blocked the last attempt: undo its links and pixel so they aren't counted under a dead id.
+      current = untrack(current, { ...pending, origin });
+      pending = null;
+    }
+    emailId = null;
+    tracked = false;
+    if (!enabled) {
+      // Never forward someone else's pixel of ours from quoted text.
+      cv.setBodyHTML(stripPixels(current, origin));
+      return;
+    }
+    event.cancel();
+    const id = newId();
+    const { html, links } = inject(current, { id, origin });
+    const email = { id, subject: cv.getSubject().slice(0, LIMITS.subject), recipients: recipientsOf(cv), links };
+
+    withDeadline(send({ type: "register", email }), REGISTER_DEADLINE_MS)
+      .then((reply) => {
+        if (!reply?.ok) throw new Error(reply?.error ?? "no reply");
+        cv.setBodyHTML(html);
+        emailId = id;
+        tracked = true;
+        pending = { id, links };
+      })
+      .catch((e: unknown) => {
+        console.warn("[email-tracker] register failed, sending untracked:", e);
+        try {
+          cv.setBodyHTML(stripPixels(current, origin));
+        } catch {
+          return; // the compose is gone; nothing to send
+        }
+        sdk.ButterBar.showMessage({ text: "Email Tracker: couldn't reach your Worker, sent without tracking.", time: 6000 });
+      })
+      .finally(() => {
+        resending = true;
+        try {
+          cv.send();
+        } catch (e) {
+          // The compose was closed while we waited on the Worker; the draft keeps the body.
+          console.warn("[email-tracker] couldn't resend:", e);
+        }
+        // If Gmail blocks the send (e.g. no recipients), the next click must go through presending again.
+        setTimeout(() => (resending = false), 2_000);
+      });
+  });
+  cv.on("sendCanceled", () => {
+    resending = false;
+  });
+
+  cv.on("sent", async (event) => {
+    pending = null;
+    if (!tracked || !emailId) return;
+    try {
+      const [thread_id, message_id] = await Promise.all([event.getThreadID(), event.getMessageID()]);
+      await send({ type: "patch", id: emailId, thread_id, message_id });
+    } catch (e) {
+      console.warn("[email-tracker] couldn't record thread id:", e);
+    }
+  });
+}
+
+async function main() {
+  const { origin, appId, trackByDefault } = await loadPublicSettings();
+  if (!origin || !appId) {
+    console.info("[email-tracker] not set up; open the extension's options page.");
+    return;
+  }
+  const sdk = await InboxSDK.load(2, appId);
+  sdk.Compose.registerComposeViewHandler((cv) => setupCompose(sdk, cv, origin, trackByDefault));
+}
+
+main().catch((e) => console.error("[email-tracker] failed to start", e));
