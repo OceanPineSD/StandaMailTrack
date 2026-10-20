@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Email Tracker (personal)",
+  "name": "Argus — Gmail open & click tracker",
   "version": "0.1.0",
-  "description": "Track opens and link clicks of emails you send from Gmail.",
+  "description": "Argus, the hundred-eyed watchman: track opens and link clicks of emails you send from Gmail.",
   "permissions": ["storage", "scripting", "alarms", "notifications", "declarativeNetRequest"],
   "host_permissions": ["https://mail.google.com/"],
   "optional_host_permissions": ["https://*/*"],

@@ -1,5 +1,5 @@
 {
-  "name": "email-tracker",
+  "name": "argus",
   "private": true,
   "description": "Personal Streak-style Gmail open & click tracker",
   "workspaces": ["worker", "extension"],

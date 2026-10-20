@@ -38,7 +38,7 @@ describe("notificationsFor", () => {
     const many = Array.from({ length: 7 }, (_, i) => ev({ id: i + 1 }));
     const got = notificationsFor(many, 3);
     expect(got).toHaveLength(4);
-    expect(got[3]).toEqual({ title: "Email Tracker", message: "+4 more opens and clicks" });
+    expect(got[3]).toEqual({ title: "Argus", message: "+4 more opens and clicks" });
   });
 
   it("returns nothing for no events", () => {
