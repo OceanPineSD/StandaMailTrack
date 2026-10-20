@@ -4,12 +4,13 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "observability": { "enabled": true },
+  "workers_dev": true,
+  "preview_urls": false,
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "email-tracker",
-      // Replace with the id printed by `npx wrangler d1 create email-tracker`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "2c8de433-3a63-4ef5-881d-82ff8a976640",
       "migrations_dir": "migrations"
     }
   ]
