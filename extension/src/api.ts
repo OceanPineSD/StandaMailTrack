@@ -1,4 +1,4 @@
-import type { EmailDetail, EmailSummary } from "./types";
+import type { EmailDetail, EmailSummary, EventsPage } from "./types";
 
 export interface NewEmail {
   id: string;
@@ -41,6 +41,9 @@ export function createApi({ origin, token, fetch = globalThis.fetch.bind(globalT
       call(`/api/threads?ids=${encodeURIComponent(ids.join(","))}`, "GET") as Promise<{ threads: Record<string, EmailSummary[]> }>,
     email: (id: string) => call(`/api/emails/${encodeURIComponent(id)}`, "GET") as Promise<EmailDetail>,
     selfViews: (ids: string[]) => call("/api/self-views", "POST", { ids }),
+    /** Settled opens and clicks after `cursor`; a null cursor only answers the current one. */
+    events: (cursor: string | null) =>
+      call(`/api/events${cursor === null ? "" : `?after=${encodeURIComponent(cursor)}`}`, "GET") as Promise<EventsPage>,
     /** An authorized lookup of an id that can't exist answers 404; a bad token answers 401. */
     async checkConnection(): Promise<ConnectionState> {
       try {
