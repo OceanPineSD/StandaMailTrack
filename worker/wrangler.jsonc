@@ -6,6 +6,8 @@
   "observability": { "enabled": true },
   "workers_dev": true,
   "preview_urls": false,
+  // Daily digest check at 13:00 UTC (9am New York in summer, 8am in winter).
+  "triggers": { "crons": ["0 13 * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

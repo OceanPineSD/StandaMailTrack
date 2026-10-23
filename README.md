@@ -94,6 +94,24 @@ node scripts/snippets.mjs join --export export.csv --mapping out/mapping.csv --o
 
 `report.csv` has one row per event with email, name, campaign, event type, destination, and time.
 
+## Optional: an email digest of results
+
+The worker can email you a summary on a schedule. It runs on a daily cron and sends through [Resend](https://resend.com) (free tier is plenty). A digest only goes out when the window had activity. It lists opens by campaign, clicks by link, and the latest events.
+
+Set it up once:
+
+1. Create a free Resend account and copy an API key.
+2. Add the key to the worker: `npx wrangler secret put RESEND_API_KEY` (from `worker/`).
+3. Configure and enable it:
+
+```bash
+curl -X PUT https://your-worker-url/api/settings \
+  -H "Authorization: Bearer YOUR_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"digest_enabled":"1","digest_every_days":"1","digest_to":"you@yourdomain.com"}'
+```
+
+`digest_every_days` accepts 1 to 30. Until you verify your domain in Resend, digests come from Resend's onboarding address, which only delivers to your own Resend account email. After verifying, set `digest_from` to an address on your domain the same way.
+
 ## Optional: check marks inside Gmail
 
 The upstream Chrome extension works unchanged. It needs a free [InboxSDK](https://register.inboxsdk.com) app id and registers real recipient addresses (see the privacy section). Build and load it:

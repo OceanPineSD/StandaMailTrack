@@ -241,10 +241,43 @@ async function exportCsv(url: URL, env: Env): Promise<Response> {
   });
 }
 
+const SETTINGS_KEYS = new Set(["digest_enabled", "digest_every_days", "digest_to", "digest_from"]);
+
+async function getSettings(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
+  return json(Object.fromEntries(results.map((r) => [r.key, r.value])));
+}
+
+/** PUT /api/settings — upserts the editable digest settings; last_digest_at stays server-managed. */
+async function putSettings(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const entries = Object.entries(body);
+  if (!entries.length) throw new HttpError(400, "no settings given");
+  for (const [key, value] of entries) {
+    if (!SETTINGS_KEYS.has(key)) throw new HttpError(400, `unknown setting: ${key}`);
+    if (typeof value !== "string" || value.length > 320) throw new HttpError(400, `invalid value for ${key}`);
+    if (key === "digest_enabled" && !/^[01]$/.test(value)) throw new HttpError(400, "digest_enabled must be 0 or 1");
+    if (key === "digest_every_days" && !/^([1-9]|[12]\d|30)$/.test(value))
+      throw new HttpError(400, "digest_every_days must be 1-30");
+    if (key === "digest_to" && value !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      throw new HttpError(400, "digest_to must be an email address");
+  }
+  await env.DB.batch(
+    entries.map(([key, value]) =>
+      env.DB.prepare(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2",
+      ).bind(key, value as string),
+    ),
+  );
+  return getSettings(env);
+}
+
 /** Routes an authenticated /api/* request. */
 export async function handleApi(request: Request, url: URL, env: Env): Promise<Response> {
   const path = url.pathname;
   const method = request.method;
+  if (path === "/api/settings" && method === "GET") return getSettings(env);
+  if (path === "/api/settings" && method === "PUT") return putSettings(request, env);
   if (path === "/api/export.csv" && method === "GET") return exportCsv(url, env);
   if (path === "/api/emails" && method === "POST") return createEmail(request, env);
   if (path === "/api/self-views" && method === "POST") return selfViews(request, env);

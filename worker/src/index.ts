@@ -1,11 +1,13 @@
 import { handleApi } from "./api";
 import { isAuthorized } from "./auth";
+import { runDigest } from "./digest";
 import { HttpError, error } from "./http";
 import { handleClick, handlePixel } from "./track";
 
 export interface Env {
   DB: D1Database;
   API_TOKEN: string;
+  RESEND_API_KEY?: string;
 }
 
 export default {
@@ -33,5 +35,13 @@ export default {
     }
 
     return new Response("Not found", { status: 404 });
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      runDigest(env)
+        .then((outcome) => console.log("digest:", outcome))
+        .catch((e) => console.error("digest failed", e)),
+    );
   },
 } satisfies ExportedHandler<Env>;
