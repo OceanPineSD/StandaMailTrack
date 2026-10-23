@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "standamailtrack",
-      "database_id": "2c8de433-3a63-4ef5-881d-82ff8a976640",
+      "database_id": "9a7cef85-79e1-408a-b164-140454733a2c",
       "migrations_dir": "migrations"
     }
   ]
