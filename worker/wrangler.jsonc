@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "email-tracker",
+  "name": "standamailtrack",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "observability": { "enabled": true },
@@ -9,7 +9,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "email-tracker",
+      "database_name": "standamailtrack",
       "database_id": "2c8de433-3a63-4ef5-881d-82ff8a976640",
       "migrations_dir": "migrations"
     }

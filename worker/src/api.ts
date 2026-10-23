@@ -168,10 +168,84 @@ async function events(url: URL, env: Env): Promise<Response> {
   return json({ events: all, cursor: `${bounds.o}-${bounds.c}` });
 }
 
+/** One CSV field, quoted only when it has to be. */
+function csvField(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+}
+
+interface ExportRow {
+  id: string;
+  subject: string;
+  recipients: string;
+  event: string;
+  destination: string;
+  at: number;
+  via_proxy: number;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  ua: string | null;
+}
+
+/**
+ * GET /api/export.csv?since=<epoch ms> — every counted open and every click, oldest first.
+ * Opens inside the grace window or near a self view are excluded, the same as everywhere else.
+ */
+async function exportCsv(url: URL, env: Env): Promise<Response> {
+  const sinceRaw = url.searchParams.get("since");
+  if (sinceRaw !== null && !/^\d{1,15}$/.test(sinceRaw)) throw new HttpError(400, "invalid since");
+  const since = sinceRaw === null ? 0 : Number(sinceRaw);
+  const [opens, clicks] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT o.email_id AS id, e.subject, e.recipients, 'open' AS event, '' AS destination,
+              o.at, o.via_proxy, o.city, o.region, o.country, o.ua
+       FROM counted_opens o JOIN emails e ON e.id = o.email_id
+       WHERE o.at > ?`,
+    ).bind(since),
+    env.DB.prepare(
+      `SELECT c.email_id AS id, e.subject, e.recipients, 'click' AS event, COALESCE(l.url, '') AS destination,
+              c.at, 0 AS via_proxy, c.city, c.region, c.country, c.ua
+       FROM clicks c JOIN emails e ON e.id = c.email_id
+       LEFT JOIN links l ON l.email_id = c.email_id AND l.idx = c.link_idx
+       WHERE c.at > ?`,
+    ).bind(since),
+  ]);
+  const rows = [...(opens.results as unknown as ExportRow[]), ...(clicks.results as unknown as ExportRow[])].sort(
+    (a, b) => a.at - b.at,
+  );
+  const header = "id,campaign,recipient,event,destination,at_iso,at_ms,via_proxy,city,region,country,ua";
+  const lines = rows.map((r) =>
+    [
+      r.id,
+      r.subject,
+      (JSON.parse(r.recipients) as string[]).join("; "),
+      r.event,
+      r.destination,
+      new Date(r.at).toISOString(),
+      r.at,
+      bool(r.via_proxy) ? 1 : 0,
+      r.city,
+      r.region,
+      r.country,
+      r.ua,
+    ]
+      .map(csvField)
+      .join(","),
+  );
+  return new Response([header, ...lines].join("\r\n") + "\r\n", {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="standamailtrack-export.csv"',
+    },
+  });
+}
+
 /** Routes an authenticated /api/* request. */
 export async function handleApi(request: Request, url: URL, env: Env): Promise<Response> {
   const path = url.pathname;
   const method = request.method;
+  if (path === "/api/export.csv" && method === "GET") return exportCsv(url, env);
   if (path === "/api/emails" && method === "POST") return createEmail(request, env);
   if (path === "/api/self-views" && method === "POST") return selfViews(request, env);
   if (path === "/api/threads" && method === "GET") return threads(url, env);

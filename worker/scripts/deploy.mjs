@@ -14,7 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_FILE = join(ROOT, ".env");
 const BASE_CONFIG = join(ROOT, "wrangler.jsonc");
 const LOCAL_CONFIG = "wrangler.local.jsonc";
-const DB_NAME = "email-tracker";
+const DB_NAME = "standamailtrack";
 
 function wrangler(args, { capture = false } = {}) {
   // shell: true so `npx` resolves on Windows too; every argument here is a constant.

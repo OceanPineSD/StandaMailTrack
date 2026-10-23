@@ -216,3 +216,29 @@ describe("GET /api/events", () => {
     expect((await api("/api/events?after=abc")).status).toBe(400);
   });
 });
+
+describe("GET /api/export.csv", () => {
+  it("exports counted opens and clicks with destinations, oldest first", async () => {
+    const id = newId();
+    await register(id, { subject: "camp-a", recipients: ["anon-x1"], links: ["https://example.com/page"] });
+    await backdate(id, 30_000); // past the 15s grace window
+    await pixel(id);
+    await click(id, 0);
+    const res = await api("/api/export.csv");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/csv");
+    const text = await res.text();
+    const lines = text.trim().split("\r\n");
+    expect(lines[0]).toBe("id,campaign,recipient,event,destination,at_iso,at_ms,via_proxy,city,region,country,ua");
+    const mine = lines.filter((l) => l.startsWith(id));
+    expect(mine.length).toBe(2);
+    expect(mine[0]).toContain(",open,");
+    expect(mine[1]).toContain(",click,https://example.com/page,");
+    expect(mine.every((l) => l.includes("anon-x1"))).toBe(true);
+  });
+
+  it("rejects a bad since and requires auth", async () => {
+    expect((await api("/api/export.csv?since=abc")).status).toBe(400);
+    expect((await api("/api/export.csv", "GET", undefined, {})).status).toBe(401);
+  });
+});
