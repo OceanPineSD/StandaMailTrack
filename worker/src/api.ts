@@ -1,4 +1,5 @@
 import type { Env } from "./index";
+import { runDigest } from "./digest";
 import { HttpError, json, readJson } from "./http";
 import { LIMITS, isId, optionalExternalId, parseIdList, parseNewEmail } from "./validate";
 
@@ -278,6 +279,7 @@ export async function handleApi(request: Request, url: URL, env: Env): Promise<R
   const method = request.method;
   if (path === "/api/settings" && method === "GET") return getSettings(env);
   if (path === "/api/settings" && method === "PUT") return putSettings(request, env);
+  if (path === "/api/digest" && method === "POST") return json({ outcome: await runDigest(env) });
   if (path === "/api/export.csv" && method === "GET") return exportCsv(url, env);
   if (path === "/api/emails" && method === "POST") return createEmail(request, env);
   if (path === "/api/self-views" && method === "POST") return selfViews(request, env);

@@ -53,3 +53,13 @@ describe("/api/settings", () => {
     expect((await api("/api/settings", "GET", undefined, {})).status).toBe(401);
   });
 });
+
+describe("POST /api/digest", () => {
+  it("runs the digest on demand behind the API token", async () => {
+    const res = await api("/api/digest", "POST");
+    expect(res.status).toBe(200);
+    const { outcome } = await res.json<{ outcome: string }>();
+    expect(outcome).toContain("skipped"); // no RESEND_API_KEY in tests
+    expect((await api("/api/digest", "POST", undefined, {})).status).toBe(401);
+  });
+});
