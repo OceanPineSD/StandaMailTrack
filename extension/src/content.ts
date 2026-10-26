@@ -189,7 +189,7 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
       const [thread_id, message_id] = await Promise.all([event.getThreadID(), event.getMessageID()]);
       await send({ type: "patch", id: emailId, thread_id, message_id });
     } catch (e) {
-      console.warn("[argus] couldn't record thread id:", e);
+      console.warn("[standamailtrack] couldn't record thread id:", e);
     }
   });
 }
@@ -214,7 +214,7 @@ function setupThreadRow(row: InboxSDK.ThreadRowView) {
       const badge = badgeLabel((await threads.get(tid)) ?? []);
       if (badge && !row.destroyed) row.addLabel(badge);
     })
-    .catch((e) => console.warn("[argus] badge failed:", e));
+    .catch((e) => console.warn("[standamailtrack] badge failed:", e));
 }
 
 const lastSelfView = new Map<string, number>();
@@ -233,7 +233,7 @@ async function reportSelfView(mv: InboxSDK.MessageView, origin: string) {
     await ask({ type: "selfViews", ids });
   } catch (e) {
     for (const id of ids) lastSelfView.delete(id); // let the next view retry
-    console.warn("[argus] self view failed:", e);
+    console.warn("[standamailtrack] self view failed:", e);
   }
 }
 
@@ -254,13 +254,13 @@ async function setupThreadView(tv: InboxSDK.ThreadView) {
     el.replaceChildren(refresh, ok.length ? renderPanel(ok, Date.now(), document) : document.createTextNode("Couldn't load tracking."));
   };
   await load();
-  if (!tv.destroyed) tv.addSidebarContentPanel({ el, title: "Argus", iconUrl: chrome.runtime.getURL("icon.svg") });
+  if (!tv.destroyed) tv.addSidebarContentPanel({ el, title: "StandaMailTrack", iconUrl: chrome.runtime.getURL("icon.svg") });
 }
 
 async function main() {
   const cfg = await loadPublicSettings();
   if (!cfg.origin || !cfg.appId) {
-    console.info("[argus] not set up; open the extension's options page.");
+    console.info("[standamailtrack] not set up; open the extension's options page.");
     return;
   }
   const { origin, appId } = cfg;
@@ -269,8 +269,8 @@ async function main() {
   sdk.Lists.registerThreadRowViewHandler(setupThreadRow);
   sdk.Conversations.registerMessageViewHandler((mv) => void reportSelfView(mv, origin));
   sdk.Conversations.registerThreadViewHandler((tv) => {
-    setupThreadView(tv).catch((e) => console.warn("[argus] panel failed:", e));
+    setupThreadView(tv).catch((e) => console.warn("[standamailtrack] panel failed:", e));
   });
 }
 
-main().catch((e) => console.error("[argus] failed to start", e));
+main().catch((e) => console.error("[standamailtrack] failed to start", e));

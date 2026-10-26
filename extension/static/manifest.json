@@ -1,16 +1,49 @@
 {
   "manifest_version": 3,
-  "name": "Argus — Gmail open & click tracker",
+  "name": "StandaMailTrack \u2014 Gmail open & click tracker",
   "version": "0.1.0",
-  "description": "Argus, the hundred-eyed watchman: track opens and link clicks of emails you send from Gmail.",
-  "permissions": ["storage", "scripting", "alarms", "notifications", "declarativeNetRequest"],
-  "host_permissions": ["https://mail.google.com/"],
-  "optional_host_permissions": ["https://*/*"],
-  "background": { "service_worker": "background.js", "type": "module" },
+  "description": "StandaMailTrack: self-hosted open and link-click tracking for emails you send from Gmail.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "alarms",
+    "notifications",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "content_scripts": [
-    { "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_end" }
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
   ],
   "options_page": "options.html",
-  "icons": { "128": "icon-128.png" },
-  "web_accessible_resources": [{ "resources": ["icon.svg"], "matches": ["https://mail.google.com/*"] }]
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icon.svg"
+      ],
+      "matches": [
+        "https://mail.google.com/*"
+      ]
+    }
+  ],
+  "short_name": "StandaMailTrack"
 }

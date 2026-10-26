@@ -16,7 +16,7 @@ const SENT_URL = "https://mail.google.com/mail/u/0/#sent";
 
 async function api() {
   const s = await loadSettings();
-  if (!s.origin || !s.token) throw new Error("Argus isn't set up yet (open its options page).");
+  if (!s.origin || !s.token) throw new Error("StandaMailTrack isn't set up yet (open its options page).");
   return createApi({ origin: s.origin, token: s.token });
 }
 

@@ -128,6 +128,7 @@ tracker, adds the pixel, and registers the recipient, all at send time. The rule
   pseudonym, so their address stays off the server. Unknown recipients register with their
   real address (see the privacy section).
 
+Extension adapted from [Argus](https://github.com/sagarrajak245/Argus) by sagarrajak245, MIT.
 It needs a free [InboxSDK](https://register.inboxsdk.com) app id. Build and load it:
 
 ```bash
