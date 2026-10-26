@@ -8,6 +8,8 @@ import { LIMITS } from "./limits";
 import { send } from "./messages";
 import { renderPanel } from "./panel";
 import { trackedIds } from "./proxyIds";
+import { ID_RE } from "./ids";
+import { campaignFor, shouldTrack, type MappingIndex } from "./mapping";
 import { DEFAULTS, type Settings } from "./settings";
 import type { EmailDetail, EmailSummary } from "./types";
 
@@ -26,10 +28,27 @@ const ICON = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
 )}`;
 
-/** The content script never reads the API token; only the background does. */
-async function loadPublicSettings(): Promise<Pick<Settings, "origin" | "appId" | "trackByDefault">> {
-  const s = (await chrome.storage.local.get(["origin", "appId", "trackByDefault"])) as Partial<Settings>;
-  return { origin: s.origin ?? "", appId: s.appId ?? "", trackByDefault: s.trackByDefault ?? DEFAULTS.trackByDefault };
+/** Everything setupCompose needs; the content script never reads the API token, only the background does. */
+interface ComposeConfig {
+  origin: string;
+  appId: string;
+  trackByDefault: boolean;
+  subjectPrefix: string;
+  campaign: string;
+  mappingIndex: MappingIndex;
+}
+
+async function loadPublicSettings(): Promise<ComposeConfig> {
+  const keys = ["origin", "appId", "trackByDefault", "subjectPrefix", "campaign", "mappingIndex"] as const;
+  const s = (await chrome.storage.local.get([...keys])) as Partial<Settings> & { mappingIndex?: MappingIndex };
+  return {
+    origin: s.origin ?? "",
+    appId: s.appId ?? "",
+    trackByDefault: s.trackByDefault ?? DEFAULTS.trackByDefault,
+    subjectPrefix: s.subjectPrefix ?? DEFAULTS.subjectPrefix,
+    campaign: s.campaign ?? DEFAULTS.campaign,
+    mappingIndex: s.mappingIndex ?? {},
+  };
 }
 
 function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -44,8 +63,19 @@ function recipientsOf(cv: ComposeView): string[] {
   );
 }
 
-function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault: boolean) {
-  let enabled = trackByDefault;
+function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
+  const { origin, trackByDefault, subjectPrefix, campaign, mappingIndex } = cfg;
+  // null = follow the subject prefix / default; true or false = the user's explicit toggle.
+  let manual: boolean | null = null;
+  const effective = () => {
+    let subject = "";
+    try {
+      subject = cv.getSubject() ?? "";
+    } catch {
+      // some compose states (e.g. replies before render) can throw; treat as no subject
+    }
+    return shouldTrack(manual, subject, subjectPrefix, trackByDefault);
+  };
   // Fresh per attempt: links are stored by position, so an edit after a blocked send must not reuse an id.
   let emailId: string | null = null;
   let tracked = false; // the body that went out carries our pixel
@@ -55,16 +85,22 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
 
   const bar = cv.addStatusBar({ height: 22 });
   const render = () => {
-    bar.el.textContent = enabled ? "👁 Tracking opens and clicks" : "Tracking off for this email";
-    bar.el.style.cssText = `font:12px/22px sans-serif;padding:0 12px;color:${enabled ? "#188038" : "#5f6368"}`;
+    const on = effective();
+    bar.el.textContent = on ? "👁 Tracking opens and clicks" : "Tracking off for this email";
+    bar.el.style.cssText = `font:12px/22px sans-serif;padding:0 12px;color:${on ? "#188038" : "#5f6368"}`;
   };
   render();
+  // The subject prefix can turn tracking on while the user types; keep the bar honest.
+  const refresh = setInterval(() => {
+    if (manual === null) render();
+  }, 1_500);
+  cv.on("destroy", () => clearInterval(refresh));
   cv.addButton({
     title: "Toggle email tracking",
     iconUrl: ICON,
     type: "MODIFIER",
     onClick: () => {
-      enabled = !enabled;
+      manual = !effective();
       render();
     },
   });
@@ -79,15 +115,37 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
     }
     emailId = null;
     tracked = false;
-    if (!enabled) {
+    if (!effective()) {
       // Never forward someone else's pixel of ours from quoted text.
       cv.setBodyHTML(stripPixels(current, origin));
       return;
     }
+
+    // Per-recipient tracking only works with exactly one recipient.
+    const to = cv.getToRecipients();
+    if (to.length !== 1 || cv.getCcRecipients().length || cv.getBccRecipients().length) {
+      event.cancel();
+      cv.setBodyHTML(current);
+      sdk.ButterBar.showMessage({
+        text: "Tracking needs exactly one To and no Cc or Bcc. Not sent. Toggle tracking off to send untracked.",
+        time: 8_000,
+      });
+      return;
+    }
+
     event.cancel();
-    const id = newId();
+    const rcpt = to[0].emailAddress.trim().toLowerCase();
+    const entry = mappingIndex[rcpt];
+    const id = entry && ID_RE.test(entry.id) ? entry.id : newId();
     const { html, links } = inject(current, { id, origin });
-    const email = { id, subject: cv.getSubject().slice(0, LIMITS.subject), recipients: recipientsOf(cv), links };
+    const subject = cv.getSubject() ?? "";
+    const email = {
+      id,
+      subject: campaignFor(entry, campaign, subject, subjectPrefix).slice(0, LIMITS.subject),
+      // An imported mapping keeps the address off the server; otherwise the real address is stored.
+      recipients: entry ? [entry.pseudonym] : recipientsOf(cv),
+      links,
+    };
 
     withDeadline(send({ type: "register", email }), REGISTER_DEADLINE_MS)
       .then((reply) => {
@@ -96,26 +154,28 @@ function setupCompose(sdk: Sdk, cv: ComposeView, origin: string, trackByDefault:
         emailId = id;
         tracked = true;
         pending = { id, links };
-      })
-      .catch((e: unknown) => {
-        console.warn("[argus] register failed, sending untracked:", e);
-        try {
-          cv.setBodyHTML(stripPixels(current, origin));
-        } catch {
-          return; // the compose is gone; nothing to send
-        }
-        sdk.ButterBar.showMessage({ text: "Argus: couldn't reach your Worker, sent without tracking.", time: 6000 });
-      })
-      .finally(() => {
         resending = true;
         try {
           cv.send();
         } catch (e) {
           // The compose was closed while we waited on the Worker; the draft keeps the body.
-          console.warn("[argus] couldn't resend:", e);
+          console.warn("[standamailtrack] couldn't resend:", e);
         }
         // If Gmail blocks the send (e.g. no recipients), the next click must go through presending again.
         setTimeout(() => (resending = false), 2_000);
+      })
+      .catch((e: unknown) => {
+        // Fail safe: never send half-tracked or untracked by accident. The draft stays as it was.
+        console.warn("[standamailtrack] register failed, send blocked:", e);
+        try {
+          cv.setBodyHTML(current);
+        } catch {
+          return; // the compose is gone
+        }
+        sdk.ButterBar.showMessage({
+          text: `Tracking failed (${String((e as Error)?.message ?? e)}). Not sent; the draft is unchanged.`,
+          time: 8_000,
+        });
       });
   });
   cv.on("sendCanceled", () => {
@@ -198,13 +258,14 @@ async function setupThreadView(tv: InboxSDK.ThreadView) {
 }
 
 async function main() {
-  const { origin, appId, trackByDefault } = await loadPublicSettings();
-  if (!origin || !appId) {
+  const cfg = await loadPublicSettings();
+  if (!cfg.origin || !cfg.appId) {
     console.info("[argus] not set up; open the extension's options page.");
     return;
   }
+  const { origin, appId } = cfg;
   const sdk = await InboxSDK.load(2, appId);
-  sdk.Compose.registerComposeViewHandler((cv) => setupCompose(sdk, cv, origin, trackByDefault));
+  sdk.Compose.registerComposeViewHandler((cv) => setupCompose(sdk, cv, cfg));
   sdk.Lists.registerThreadRowViewHandler(setupThreadRow);
   sdk.Conversations.registerMessageViewHandler((mv) => void reportSelfView(mv, origin));
   sdk.Conversations.registerThreadViewHandler((tv) => {

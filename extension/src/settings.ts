@@ -1,12 +1,23 @@
 export interface Settings {
-  /** Worker origin, e.g. https://email-tracker.me.workers.dev */
+  /** Worker origin, e.g. https://track.yourdomain.com */
   origin: string;
   token: string;
   appId: string;
   trackByDefault: boolean;
+  /** Subjects starting with this are tracked even without the per-compose toggle. */
+  subjectPrefix: string;
+  /** Campaign stored with registrations when the recipient has no imported mapping entry. */
+  campaign: string;
 }
 
-export const DEFAULTS: Settings = { origin: "", token: "", appId: "", trackByDefault: true };
+export const DEFAULTS: Settings = {
+  origin: "",
+  token: "",
+  appId: "",
+  trackByDefault: false,
+  subjectPrefix: "Cornell research:",
+  campaign: "",
+};
 
 /** The https origin of a pasted Worker URL, or null if it isn't one (the manifest only grants https hosts). */
 export function normalizeOrigin(raw: string): string | null {

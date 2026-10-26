@@ -112,9 +112,23 @@ curl -X PUT https://your-worker-url/api/settings \
 
 `digest_every_days` accepts 1 to 30. Until you verify your domain in Resend, digests come from Resend's onboarding address, which only delivers to your own Resend account email. After verifying, set `digest_from` to an address on your domain the same way.
 
-## Optional: check marks inside Gmail
+## Optional: check marks and send-time tracking inside Gmail
 
-The upstream Chrome extension works unchanged. It needs a free [InboxSDK](https://register.inboxsdk.com) app id and registers real recipient addresses (see the privacy section). Build and load it:
+The Chrome extension hooks Gmail's Send. When tracking is on it rewrites every link to your
+tracker, adds the pixel, and registers the recipient, all at send time. The rules it enforces:
+
+- Tracking is off by default. It turns on when the subject starts with your configured prefix,
+  or when you flip the per-compose toggle. The toggle always wins.
+- Tracked sends need exactly one To and no Cc or Bcc, or the send is blocked with a message.
+- Gmail's expiring google.com/url link wrappers are unwrapped before rewriting.
+- Links already on your tracker are never double-wrapped, and only one pixel is ever attached.
+- If the Worker can't be reached, the send is blocked and the draft stays unchanged. It never
+  sends half-tracked.
+- Import your mapping.csv files in the options page and known recipients reuse their id and
+  pseudonym, so their address stays off the server. Unknown recipients register with their
+  real address (see the privacy section).
+
+It needs a free [InboxSDK](https://register.inboxsdk.com) app id. Build and load it:
 
 ```bash
 cd extension

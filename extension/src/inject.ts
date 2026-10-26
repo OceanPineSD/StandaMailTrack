@@ -30,6 +30,22 @@ export function stripPixels(html: string, origin: string): string {
   return body.innerHTML;
 }
 
+/**
+ * The target of a Gmail interstitial link (https://www.google.com/url?q=<target>&ust=…), or the
+ * href unchanged. These wrappers expire and then show Google's "Redirect Notice" page.
+ */
+export function unwrapGoogleRedirect(href: string): string {
+  try {
+    const url = new URL(href);
+    if (url.hostname !== "www.google.com" && url.hostname !== "google.com") return href;
+    if (url.pathname !== "/url") return href;
+    const target = url.searchParams.get("q");
+    return target && /^https?:\/\//i.test(target) ? target : href;
+  } catch {
+    return href;
+  }
+}
+
 /** Only URLs the Worker will accept: one bad href would otherwise fail the whole register. */
 function isTrackable(href: string): boolean {
   if (href.length > LIMITS.url) return false;
@@ -53,7 +69,9 @@ export function inject(html: string, { id, origin }: { id: string; origin: strin
   for (const a of body.querySelectorAll("a[href]")) {
     if (links.length >= LIMITS.links) break;
     if (a.closest(QUOTE)) continue;
-    const href = a.getAttribute("href")!.trim();
+    const raw = a.getAttribute("href")!.trim();
+    const href = unwrapGoogleRedirect(raw);
+    if (href !== raw) a.setAttribute("href", href); // never send an expiring Google wrapper
     if (!/^https?:\/\//i.test(href) || !isTrackable(href) || href.startsWith(`${origin}/`)) continue;
     a.setAttribute("href", `${origin}/c/${id}/${links.length}`);
     links.push(href);
