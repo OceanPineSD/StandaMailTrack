@@ -27,13 +27,16 @@ async function showMappingCount() {
   mappingCount.textContent = n ? `${n} recipient${n === 1 ? "" : "s"} imported.` : "";
 }
 
-loadSettings().then((s) => {
+loadSettings().then(async (s) => {
   fields.origin.value = s.origin;
   fields.token.value = s.token;
   fields.appId.value = s.appId;
   fields.trackByDefault.checked = s.trackByDefault;
   fields.subjectPrefix.value = s.subjectPrefix;
   fields.campaign.value = s.campaign;
+  // A saved origin without its host permission breaks every Worker call with "Failed to fetch".
+  if (s.origin && !(await chrome.permissions.contains({ origins: [`${s.origin}/*`] })))
+    show(`Chrome hasn't granted access to ${s.origin}. Press Save and allow it.`, false);
 });
 void showMappingCount();
 

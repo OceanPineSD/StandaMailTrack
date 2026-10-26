@@ -58,12 +58,32 @@ async function handle(msg: Request): Promise<Reply> {
   }
 }
 
+/**
+ * "Failed to fetch" happens before any HTTP exchange. In a service worker that is almost always
+ * the runtime host permission for the Worker origin missing (granted on the options page's Save),
+ * so name the real problem instead of the symptom. HTTP failures already carry their status.
+ */
+async function explainError(e: unknown): Promise<string> {
+  const msg = String((e as Error)?.message ?? e);
+  if (!/failed to fetch|networkerror/i.test(msg)) return msg;
+  try {
+    const { origin } = await loadSettings();
+    if (origin && !(await chrome.permissions.contains({ origins: [`${origin}/*`] })))
+      return `no permission for ${origin}: open the extension's options, press Save, and allow access`;
+    return `network error reaching ${origin || "the Worker"}`;
+  } catch {
+    return msg;
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg: Request, sender, sendResponse) => {
   // Only our own content script (on Gmail) and extension pages may use the API token.
   const fromGmail = sender.url?.startsWith("https://mail.google.com/") ?? false;
   const fromExtension = sender.url?.startsWith(chrome.runtime.getURL("")) ?? false;
   if (sender.id !== chrome.runtime.id || !(fromGmail || fromExtension)) return false;
-  handle(msg).then(sendResponse, (e: unknown) => sendResponse({ ok: false, error: String((e as Error)?.message ?? e) }));
+  handle(msg).then(sendResponse, (e: unknown) => {
+    void explainError(e).then((error) => sendResponse({ ok: false, error }));
+  });
   return true; // async response
 });
 
