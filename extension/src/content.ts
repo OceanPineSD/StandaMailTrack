@@ -9,7 +9,7 @@ import { send } from "./messages";
 import { renderPanel } from "./panel";
 import { trackedIds } from "./proxyIds";
 import { ID_RE } from "./ids";
-import { campaignFor, shouldTrack, type MappingIndex } from "./mapping";
+import { campaignFor, trackReason, type MappingIndex, type TrackReason } from "./mapping";
 import { DEFAULTS, type Settings } from "./settings";
 import type { EmailDetail, EmailSummary } from "./types";
 
@@ -67,14 +67,25 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
   const { origin, trackByDefault, subjectPrefix, campaign, mappingIndex } = cfg;
   // null = follow the subject prefix / default; true or false = the user's explicit toggle.
   let manual: boolean | null = null;
-  const effective = () => {
+  const reason = (): TrackReason => {
     let subject = "";
+    let toInMapping = false;
     try {
       subject = cv.getSubject() ?? "";
+      toInMapping = cv.getToRecipients().some((r) => !!mappingIndex[r.emailAddress.trim().toLowerCase()]);
     } catch {
-      // some compose states (e.g. replies before render) can throw; treat as no subject
+      // some compose states (e.g. replies before render) can throw; treat as no subject or recipients
     }
-    return shouldTrack(manual, subject, subjectPrefix, trackByDefault);
+    return trackReason(manual, subject, subjectPrefix, trackByDefault, toInMapping);
+  };
+  /** Default-on is soft: a multi-recipient send goes out untracked instead of being blocked. */
+  const singleRecipient = () =>
+    cv.getToRecipients().length === 1 && !cv.getCcRecipients().length && !cv.getBccRecipients().length;
+  const LABELS: Record<Exclude<TrackReason, null>, string> = {
+    manual: "toggle",
+    prefix: "subject prefix",
+    mapping: "recipient in mapping",
+    default: "on by default",
   };
   // Fresh per attempt: links are stored by position, so an edit after a blocked send must not reuse an id.
   let emailId: string | null = null;
@@ -84,9 +95,25 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
   let pending: { id: string; links: string[] } | null = null;
 
   const bar = cv.addStatusBar({ height: 22 });
+  const state = () => {
+    const r = reason();
+    let on = r !== null;
+    let text = r ? `👁 Tracking opens and clicks (${LABELS[r]})` : "Tracking off for this email";
+    if (r === "default") {
+      try {
+        if (!singleRecipient()) {
+          on = false;
+          text = "Tracking off: more than one recipient";
+        }
+      } catch {
+        // recipients not readable yet
+      }
+    }
+    return { on, text };
+  };
   const render = () => {
-    const on = effective();
-    bar.el.textContent = on ? "👁 Tracking opens and clicks" : "Tracking off for this email";
+    const { on, text } = state();
+    bar.el.textContent = text;
     bar.el.style.cssText = `font:12px/22px sans-serif;padding:0 12px;color:${on ? "#188038" : "#5f6368"}`;
   };
   render();
@@ -100,7 +127,7 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
     iconUrl: ICON,
     type: "MODIFIER",
     onClick: () => {
-      manual = !effective();
+      manual = !state().on;
       render();
     },
   });
@@ -115,7 +142,9 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
     }
     emailId = null;
     tracked = false;
-    if (!effective()) {
+    const why = reason();
+    // Default-on never blocks a reply-all or group email; it just sends that one untracked.
+    if (!why || (why === "default" && !singleRecipient())) {
       // Never forward someone else's pixel of ours from quoted text.
       cv.setBodyHTML(stripPixels(current, origin));
       return;
@@ -123,7 +152,7 @@ function setupCompose(sdk: Sdk, cv: ComposeView, cfg: ComposeConfig) {
 
     // Per-recipient tracking only works with exactly one recipient.
     const to = cv.getToRecipients();
-    if (to.length !== 1 || cv.getCcRecipients().length || cv.getBccRecipients().length) {
+    if (!singleRecipient()) {
       event.cancel();
       cv.setBodyHTML(current);
       sdk.ButterBar.showMessage({

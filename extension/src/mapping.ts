@@ -58,20 +58,35 @@ export function parseMapping(text: string): MappingIndex {
   return out;
 }
 
+/** Why a compose is tracked, or null when it isn't. Only "default" is soft (see content.ts). */
+export type TrackReason = "manual" | "prefix" | "mapping" | "default" | null;
+
 /**
- * Whether a compose should be tracked: an explicit toggle wins, otherwise the subject
- * prefix (case-insensitive) or the track-by-default setting turns it on.
+ * Why a compose should be tracked: an explicit toggle wins; otherwise the subject prefix
+ * (case-insensitive), a To recipient found in an imported mapping.csv, or track-by-default.
  */
+export function trackReason(
+  manual: boolean | null,
+  subject: string,
+  prefix: string,
+  trackByDefault: boolean,
+  toInMapping = false,
+): TrackReason {
+  if (manual !== null) return manual ? "manual" : null;
+  const p = prefix.trim().toLowerCase();
+  if (p && subject.trim().toLowerCase().startsWith(p)) return "prefix";
+  if (toInMapping) return "mapping";
+  return trackByDefault ? "default" : null;
+}
+
 export function shouldTrack(
   manual: boolean | null,
   subject: string,
   prefix: string,
   trackByDefault: boolean,
+  toInMapping = false,
 ): boolean {
-  if (manual !== null) return manual;
-  const p = prefix.trim().toLowerCase();
-  if (p && subject.trim().toLowerCase().startsWith(p)) return true;
-  return trackByDefault;
+  return trackReason(manual, subject, prefix, trackByDefault, toInMapping) !== null;
 }
 
 /** The campaign stored with a registration, in order of preference. */

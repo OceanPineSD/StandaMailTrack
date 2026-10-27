@@ -117,9 +117,12 @@ curl -X PUT https://your-worker-url/api/settings \
 The Chrome extension hooks Gmail's Send. When tracking is on it rewrites every link to your
 tracker, adds the pixel, and registers the recipient, all at send time. The rules it enforces:
 
-- Tracking is off by default. It turns on when the subject starts with your configured prefix,
-  or when you flip the per-compose toggle. The toggle always wins.
-- Tracked sends need exactly one To and no Cc or Bcc, or the send is blocked with a message.
+- Tracking turns on for any of four reasons, and the compose status bar names which one:
+  the per-compose toggle, a subject that starts with your configured prefix, a To recipient
+  found in an imported mapping.csv, or the "track by default" setting. The toggle always wins.
+- Tracked sends need exactly one To and no Cc or Bcc. If tracking came from the toggle, the
+  prefix, or a mapping, the send is blocked with a message. If it came only from the default,
+  the email sends untracked instead, so reply-alls keep working.
 - Gmail's expiring google.com/url link wrappers are unwrapped before rewriting.
 - Links already on your tracker are never double-wrapped, and only one pixel is ever attached.
 - If the Worker can't be reached, the send is blocked and the draft stays unchanged. It never

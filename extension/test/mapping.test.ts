@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { unwrapGoogleRedirect, inject } from "../src/inject";
-import { campaignFor, isForbiddenOrigin, parseMapping, shouldTrack } from "../src/mapping";
+import { campaignFor, isForbiddenOrigin, parseMapping, shouldTrack, trackReason } from "../src/mapping";
 
 const ORIGIN = "https://track.example.com";
 const CSV = [
@@ -29,6 +29,19 @@ describe("shouldTrack", () => {
     expect(shouldTrack(false, "Cornell research: EP guide", "Cornell research:", true)).toBe(false);
     expect(shouldTrack(true, "Lunch?", "Cornell research:", false)).toBe(true);
     expect(shouldTrack(null, "Lunch?", "", true)).toBe(true);
+  });
+
+  it("a To recipient in an imported mapping turns tracking on without the prefix", () => {
+    expect(trackReason(null, "EP coverage question", "Cornell research:", false, true)).toBe("mapping");
+    expect(trackReason(null, "EP coverage question", "Cornell research:", false, false)).toBe(null);
+    expect(trackReason(false, "EP coverage question", "Cornell research:", false, true)).toBe(null);
+  });
+
+  it("names why tracking is on, so only default-on can be treated as soft", () => {
+    expect(trackReason(true, "Lunch?", "", false)).toBe("manual");
+    expect(trackReason(null, "Cornell research: x", "Cornell research:", true, true)).toBe("prefix");
+    expect(trackReason(null, "Lunch?", "Cornell research:", true)).toBe("default");
+    expect(trackReason(null, "Lunch?", "", false)).toBe(null);
   });
 });
 

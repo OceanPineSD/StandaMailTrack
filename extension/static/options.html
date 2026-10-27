@@ -33,19 +33,21 @@
 
       <label for="subjectPrefix">Tracked subject prefix</label>
       <input id="subjectPrefix" type="text" placeholder="Cornell research:" />
-      <p class="hint">Emails whose subject starts with this are tracked automatically. The in-compose toggle always wins.</p>
+      <p class="hint">Emails whose subject starts with this are tracked automatically. Leave empty to skip. The in-compose toggle always wins.</p>
 
       <label for="campaign">Default campaign</label>
       <input id="campaign" type="text" placeholder="Leave empty to use the subject" />
       <p class="hint">Stored with registrations when the recipient has no imported mapping entry.</p>
 
       <label class="check"><input id="trackByDefault" type="checkbox" /> Track new emails by default</label>
+      <p class="hint">Single-recipient emails only. Reply-alls and group emails still send, untracked.</p>
 
       <label for="mapping">Import mapping.csv files</label>
       <input id="mapping" type="file" accept=".csv,text/csv" multiple />
       <p class="hint">
         From <code>snippets.mjs generate</code>. Known recipients then reuse their id and pseudonym, so their
-        address never reaches the Worker. Stored only in this browser. <span id="mappingCount"></span>
+        address never reaches the Worker. Emails to an imported recipient are tracked automatically, whatever the
+        subject. Stored only in this browser. <span id="mappingCount"></span>
       </p>
 
       <button type="submit">Save</button>
