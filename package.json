@@ -1,7 +1,7 @@
 {
-  "name": "argus",
+  "name": "standamailtrack",
   "private": true,
-  "description": "Personal Streak-style Gmail open & click tracker",
+  "description": "Self-hosted Gmail open and click tracking on Cloudflare Workers and D1",
   "workspaces": ["worker", "extension"],
   "scripts": {
     "test": "npm test --workspaces",

@@ -1,5 +1,7 @@
 # StandaMailTrack
 
+[![CI](https://github.com/OceanPineSD/StandaMailTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/OceanPineSD/StandaMailTrack/actions/workflows/ci.yml)
+
 Self-hosted email open and click tracking for Gmail senders. You own the data, the domain, and the logs.
 
 A fork of [Argus](https://github.com/sagarrajak245/Argus) by [sagar rajak](https://github.com/sagarrajak245), MIT licensed. The worker, the suppression logic, and the Chrome extension are his work. This fork adds a CSV export endpoint, a mail-merge snippet script that keeps recipient addresses off the server, and this README.

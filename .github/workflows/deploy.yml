@@ -22,5 +22,6 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run typecheck -w worker
+      - run: npm test -w worker
       - run: npx wrangler d1 migrations apply standamailtrack --remote -c worker/wrangler.jsonc
       - run: npx wrangler deploy -c worker/wrangler.jsonc
